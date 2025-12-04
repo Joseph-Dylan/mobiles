@@ -1,61 +1,87 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { Camera } from 'expo-camera';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, Linking } from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 export default function App() {
-  const [hasPermission, setHasPermission] = useState(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [scanResult, setScanResult] = useState('');
-  const cameraRef = useRef(null);
 
   useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
+    if (!permission) requestPermission();
   }, []);
 
-  const handleBarCodeScanned = ({ type, data }) => {
-    if (scanned) return; // Prevenir múltiples escaneos al mismo tiempo
+  const handleBarCodeScanned = ({ data }) => {
+    if (scanned) return;
+
     setScanned(true);
     setScanResult(data);
-    Alert.alert('QR Escaneado', `Datos: ${data}`);
+
+    Alert.alert(
+      'QR Escaneado',
+      `Datos: ${data}`,
+      [
+        {
+          text: 'Abrir en navegador',
+          onPress: () => {
+            if (Linking.canOpenURL(data)) {
+              Linking.openURL(data);
+            } else {
+              Alert.alert("Error", "El código no contiene una URL válida.");
+            }
+          }
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        }
+      ]
+    );
   };
 
-  if (hasPermission === null) {
-    return <Text>Solicitando permisos...</Text>;
+  if (!permission) {
+    return <Text>Cargando permisos...</Text>;
   }
 
-  if (hasPermission === false) {
-    return <Text>No tiene permisos para acceder a la cámara</Text>;
+  if (!permission.granted) {
+    return (
+      <View>
+        <Text>No tiene permisos para acceder a la cámara</Text>
+        <TouchableOpacity onPress={requestPermission}>
+          <Text>Permitir acceso</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Escanea el Código QR</Text>
 
-      {/* Vista de la cámara */}
       <View style={styles.cameraContainer}>
-        <Camera
+        <CameraView
           style={styles.camera}
-          ref={cameraRef}
-          onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
-          type={Camera.Constants.Type.back} // Puedes cambiar a 'front' si quieres usar la cámara frontal
+          facing="back"
+          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+          barcodeScannerSettings={{
+            barcodeTypes: ['qr'],
+          }}
         >
           <View style={styles.cameraOverlay}>
-            {/* Cualquier overlay que quieras agregar */}
             <Text style={styles.cameraInstructions}>Enfoca el QR</Text>
           </View>
-        </Camera>
+        </CameraView>
       </View>
 
-      {/* Mostrar el resultado del escaneo */}
       {scanned && (
         <View style={styles.resultContainer}>
           <Text style={styles.resultText}>Resultado del escaneo:</Text>
           <Text style={styles.resultData}>{scanResult}</Text>
-          <TouchableOpacity style={styles.resetButton} onPress={() => setScanned(false)}>
+
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={() => setScanned(false)}
+          >
             <Text style={styles.resetButtonText}>Escanear de nuevo</Text>
           </TouchableOpacity>
         </View>
@@ -70,6 +96,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
+    paddingTop: 40,
   },
   title: {
     fontSize: 24,
@@ -79,8 +106,6 @@ const styles = StyleSheet.create({
   cameraContainer: {
     width: '100%',
     height: '60%',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   camera: {
     width: '100%',
@@ -99,7 +124,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 5,
   },
