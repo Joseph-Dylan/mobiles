@@ -1,8 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Linking } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  Linking
+} from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 export default function App() {
+  const [isLogged, setIsLogged] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [scanResult, setScanResult] = useState('');
@@ -10,6 +21,16 @@ export default function App() {
   useEffect(() => {
     if (!permission) requestPermission();
   }, []);
+
+  const handleLogin = () => {
+    if (username === 'admin' && password === '1234') {
+      setIsLogged(true);
+      setUsername('');
+      setPassword('');
+    } else {
+      Alert.alert('Error', 'Usuario o contraseña incorrectos');
+    }
+  };
 
   const handleBarCodeScanned = ({ data }) => {
     if (scanned) return;
@@ -23,32 +44,53 @@ export default function App() {
       [
         {
           text: 'Abrir en navegador',
-          onPress: () => {
-            if (Linking.canOpenURL(data)) {
-              Linking.openURL(data);
-            } else {
-              Alert.alert("Error", "El código no contiene una URL válida.");
-            }
-          }
+          onPress: async () => {
+            const can = await Linking.canOpenURL(data);
+            if (can) Linking.openURL(data);
+            else Alert.alert('Error', 'El QR no contiene una URL válida.');
+          },
         },
-        {
-          text: 'Cancelar',
-          style: 'cancel'
-        }
+        { text: 'Cancelar', style: 'cancel' }
       ]
     );
   };
 
-  if (!permission) {
-    return <Text>Cargando permisos...</Text>;
+  // ----------- PANTALLA DE LOGIN -------------
+  if (!isLogged) {
+    return (
+      <View style={styles.loginContainer}>
+        <Text style={styles.loginTitle}>Iniciar Sesión</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Usuario"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Contraseña"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+
+        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+          <Text style={styles.loginButtonText}>Entrar</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
-  if (!permission.granted) {
+  // ----------- PANTALLA DE LECTOR QR -------------
+  if (!permission?.granted) {
     return (
-      <View>
-        <Text>No tiene permisos para acceder a la cámara</Text>
+      <View style={styles.container}>
+        <Text>No tiene permiso para usar la cámara</Text>
         <TouchableOpacity onPress={requestPermission}>
-          <Text>Permitir acceso</Text>
+          <Text>Dar permiso</Text>
         </TouchableOpacity>
       </View>
     );
@@ -90,7 +132,41 @@ export default function App() {
   );
 }
 
+// ----------------- ESTILOS -----------------
 const styles = StyleSheet.create({
+  // Login
+  loginContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 30,
+    backgroundColor: '#fff',
+  },
+  loginTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+  input: {
+    backgroundColor: '#eee',
+    padding: 12,
+    marginBottom: 15,
+    borderRadius: 8,
+    fontSize: 16,
+  },
+  loginButton: {
+    backgroundColor: '#8B2453',
+    padding: 15,
+    borderRadius: 8,
+  },
+  loginButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+
+  // Scanner
   container: {
     flex: 1,
     justifyContent: 'center',
